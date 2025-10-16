@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market + Stock Ticker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap');
+  body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+  }
+  #ticker-bar {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    background: linear-gradient(to right, #002b6b, #004c99);
+    color: white;
+    overflow: hidden;
+    border-top: 2px solid #ffffff33;
+    border-bottom: 2px solid #ffffff33;
+  }
+  #ticker {
+    display: inline-block;
+    white-space: nowrap;
+    animation: scroll-left 30s linear infinite;
+    padding-left: 100%;
+    font-size: 22px;
+  }
+  .stock {
+    margin-right: 60px;
+  }
+  .up { color: #00ff99; }
+  .down { color: #ff5555; }
+  img {
+    height: 24px;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes scroll-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+  }
+</style>
+</head>
+<body>
+  <div id="ticker-bar">
+    <div id="ticker">Loading market data...</div>
+  </div>
+  <script>
+    const symbols = ["^DJI", "^IXIC", "^GSPC", "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "GOOG", "META", "NFLX", "AMD", "INTC"];
+    const logos = {
+      "^DJI": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Dow_Jones_Logo.svg",
+      "^IXIC": "https://upload.wikimedia.org/wikipedia/commons/6/6a/NASDAQ_Logo.svg",
+      "^GSPC": "https://upload.wikimedia.org/wikipedia/commons/8/8e/SP500_Logo.svg"
+    };
+    const api = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
+
+    async function loadData() {
+      try {
+        const res = await fetch(api);
+        const data = await res.json();
+        const quotes = data.quoteResponse.result;
+        const html = quotes.map(q => {
+          const change = (q.regularMarketChangePercent || 0).toFixed(2);
+          const cls = change >= 0 ? "up" : "down";
+          const logo = logos[q.symbol] ? `<img src="${logos[q.symbol]}" alt="">` : "";
+          return `<span class="stock">${logo}<b>${q.shortName || q.symbol}</b> $${q.regularMarketPrice.toFixed(2)} <span class="${cls}">${change}%</span></span>`;
+        }).join(" • ");
+        document.getElementById("ticker").innerHTML = html;
+      } catch (e) {
+        document.getElementById("ticker").textContent = "Unable to load market data.";
+        console.error(e);
+      }
+    }
+    loadData();
+    setInterval(loadData, 60000);
+  </script>
+</body>
+</html>
