@@ -1,84 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Finance Ticker</title>
-  <style>
-    body {
-      margin: 0;
-      background-color: transparent;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-    }
-
-    .ticker {
-      display: flex;
-      align-items: center;
-      height: 50px;
-      background: linear-gradient(90deg, #0a2e5d, #0058b0);
-      color: white;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-
-    .scroll {
-      display: inline-block;
-      animation: scroll-left 40s linear infinite;
-    }
-
-    @keyframes scroll-left {
-      0% { transform: translateX(100%); }
-      100% { transform: translateX(-100%); }
-    }
-
-    .stock {
-      display: inline-flex;
-      align-items: center;
-      margin-right: 40px;
-      font-size: 18px;
-    }
-
-    .up { color: #00ff85; }
-    .down { color: #ff4b4b; }
-    .symbol { font-weight: bold; margin-right: 6px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Market + Stock Ticker (CORS-proxied)</title>
+<style>
+  body{margin:0;background:transparent;overflow:hidden;font-family:Roboto,Arial,sans-serif}
+  #bar{height:60px;display:flex;align-items:center;background:linear-gradient(90deg,#002b6b,#0059b3);color:#fff;overflow:hidden;border-top:2px solid #ffffff33;border-bottom:2px solid #ffffff33}
+  #scroll{display:inline-block;white-space:nowrap;animation:scroll 30s linear infinite;padding-left:100%}
+  .stock{display:inline-flex;align-items:center;margin-right:48px;font-size:18px}
+  .sym{font-weight:700;margin-right:8px}
+  .up{color:#00ff85;margin-left:6px}
+  .down{color:#ff6b6b;margin-left:6px}
+  @keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+</style>
 </head>
 <body>
-  <div class="ticker">
-    <div id="ticker-content" class="scroll">Loading market data...</div>
-  </div>
+  <div id="bar"><div id="scroll">Loading market data…</div></div>
 
-  <script>
-    const apiUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=^DJI,^IXIC,^GSPC,AAPL,TSLA,NVDA,MSFT,AMZN,GOOGL";
+<script>
+(async function(){
+  // Symbols to show
+  const symbols = ["^DJI","^IXIC","^GSPC","AAPL","MSFT","TSLA","NVDA","AMZN","GOOGL"];
+  const yahooApi = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}`;
 
-    async function fetchData() {
-      try {
-        const res = await fetch(apiUrl);
-        const data = await res.json();
-        const quotes = data.quoteResponse.result;
+  // public CORS proxy - returns the remote response content
+  // If this proxy fails, try replacing with: https://corsproxy.io/? (prefix) or https://api.allorigins.win/raw?url=
+  const proxyBase = "https://api.allorigins.win/raw?url=";
+  const fetchUrl = proxyBase + encodeURIComponent(yahooApi);
 
-        const html = quotes.map(q => {
-          const change = q.regularMarketChangePercent?.toFixed(2);
-          const price = q.regularMarketPrice?.toFixed(2);
-          const colorClass = change >= 0 ? "up" : "down";
-          const sign = change >= 0 ? "+" : "";
-          return `
-            <span class="stock">
-              <span class="symbol">${q.symbol}</span>
-              <span>${price}</span>
-              <span class="${colorClass}">(${sign}${change}%)</span>
-            </span>`;
-        }).join("");
+  const scrollEl = document.getElementById("scroll");
 
-        document.getElementById("ticker-content").innerHTML = html + html; // doubled for smooth scroll
-      } catch (e) {
-        document.getElementById("ticker-content").innerText = "Error loading market data.";
-      }
+  async function update() {
+    try {
+      const r = await fetch(fetchUrl);
+      if (!r.ok) throw new Error("proxy fetch failed " + r.status);
+      const text = await r.text();
+      // yahoo returns JSON; parse it (some proxies may wrap it as text)
+      const data = JSON.parse(text);
+      const quotes = data?.quoteResponse?.result || [];
+      if (!quotes.length) throw new Error("no quotes");
+
+      // build HTML
+      const parts = quotes.map(q => {
+        const price = (typeof q.regularMarketPrice === "number") ? q.regularMarketPrice.toFixed(2) : "--";
+        const pct = (typeof q.regularMarketChangePercent === "number") ? q.regularMarketChangePercent.toFixed(2) : "0.00";
+        const cls = (parseFloat(pct) >= 0) ? "up" : "down";
+        const sign = (parseFloat(pct) >= 0) ? "+" : "";
+        const name = q.symbol || q.shortName || q.longName || "";
+        return `<span class="stock"><span class="sym">${name}</span><span class="price">$${price}</span><span class="${cls}">(${sign}${pct}%)</span></span>`;
+      });
+
+      // duplicate the string once for smooth continuous scroll
+      const html = parts.join(" • ") + " • " + parts.join(" • ");
+      scrollEl.innerHTML = html;
+
+    } catch (err) {
+      console.error("Ticker error:", err);
+      scrollEl.textContent = "Unable to load market data (proxy or API blocked).";
     }
+  }
 
-    fetchData();
-    setInterval(fetchData, 60000); // refresh data every 60 sec
-  </script>
+  // initial load + periodic refresh
+  await update();
+  setInterval(update, 60000); // refresh every 60s
+})();
+</script>
 </body>
 </html>
