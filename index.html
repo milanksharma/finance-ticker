@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Ticker</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: transparent;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    .ticker {
+      display: flex;
+      align-items: center;
+      height: 50px;
+      background: linear-gradient(90deg, #0a2e5d, #0058b0);
+      color: white;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .scroll {
+      display: inline-block;
+      animation: scroll-left 40s linear infinite;
+    }
+
+    @keyframes scroll-left {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-100%); }
+    }
+
+    .stock {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 40px;
+      font-size: 18px;
+    }
+
+    .up { color: #00ff85; }
+    .down { color: #ff4b4b; }
+    .symbol { font-weight: bold; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="ticker">
+    <div id="ticker-content" class="scroll">Loading market data...</div>
+  </div>
+
+  <script>
+    const apiUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=^DJI,^IXIC,^GSPC,AAPL,TSLA,NVDA,MSFT,AMZN,GOOGL";
+
+    async function fetchData() {
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+        const quotes = data.quoteResponse.result;
+
+        const html = quotes.map(q => {
+          const change = q.regularMarketChangePercent?.toFixed(2);
+          const price = q.regularMarketPrice?.toFixed(2);
+          const colorClass = change >= 0 ? "up" : "down";
+          const sign = change >= 0 ? "+" : "";
+          return `
+            <span class="stock">
+              <span class="symbol">${q.symbol}</span>
+              <span>${price}</span>
+              <span class="${colorClass}">(${sign}${change}%)</span>
+            </span>`;
+        }).join("");
+
+        document.getElementById("ticker-content").innerHTML = html + html; // doubled for smooth scroll
+      } catch (e) {
+        document.getElementById("ticker-content").innerText = "Error loading market data.";
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, 60000); // refresh data every 60 sec
+  </script>
+</body>
+</html>
